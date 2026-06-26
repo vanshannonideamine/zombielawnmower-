@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Zombie Lawn Mower</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            overflow: hidden;
+            background: #1a1a1a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #gameCanvas {
+            display: block;
+            background: #d4c96a;
+            cursor: crosshair;
+        }
+
+        /* Stats Panel */
+        #statsPanel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.75);
+            border: 2px solid #8b6914;
+            border-radius: 10px;
+            padding: 12px 18px;
+            color: #fff;
+            font-size: 14px;
+            z-index: 100;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            min-width: 160px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            margin: 4px 0;
+            gap: 8px;
+        }
+
+        .stat-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .stat-label {
+            color: #ccc;
+            min-width: 60px;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: #ffd700;
+            font-size: 16px;
+        }
+
+        #healthBar {
+            width: 100px;
+            height: 12px;
+            background: #333;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #555;
+        }
+
+        #healthFill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4444, #ff6666);
+            border-radius: 6px;
+            transition: width 0.3s ease;
+            width: 100%;
+        }
+
+        /* Shop Button */
+        #shopBtn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: linear-gradient(135deg, #c0392b, #e74c3c);
+            border: 2px solid #922b21;
+            border-radius: 10px;
+            padding: 12px 24px;
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 100;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        #shopBtn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.6);
+        }
+
+        #shopBtn:active {
+            transform: scale(0.95);
+        }
+
+        /* Shop Modal */
+        #shopModal {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 200;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        #shopModal.active {
+            display: flex;
+        }
+
+        .shop-title {
+            color: #ffd700;
+            font-size: 32px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .shop-coins {
+            color: #ffd700;
+            font-size: 20px;
+            margin-bottom: 20px;
+        }
+
+        .weapons-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            max-width: 900px;
+            width: 90%;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .weapon-card {
+            background: linear-gradient(135deg, #2c3e50, #34495e);
+            border: 2px solid #555;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .weapon-card:hover {
+            border-color: #ffd700;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3);
+        }
+
+        .weapon-card.owned {
+            border-color: #27ae60;
+            background: linear-gradient(135deg, #1e5631, #27ae60);
+        }
+
+        .weapon-card.selected {
+            border-color: #3498db;
+            box-shadow: 0 0 20px rgba(52, 152, 219, 0.5);
+        }
+
+        .weapon-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #ffd700;
+        }
+
+        .weapon-stats {
+            font-size: 12px;
+            color: #ccc;
+            margin: 4px 0;
+        }
+
+        .weapon-price {
+            font-size: 16px;
+            color: #f39c12;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        .weapon-card.owned .weapon-price {
+            color: #2ecc71;
+        }
+
+        .close-shop {
+            margin-top: 20px;
+            background: #e74c3c;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 40px;
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .close-shop:hover {
+            background: #c0392b;
+            transform: scale(1.05);
+        }
+
+        /* Mobile Controls */
+        #mobileControls {
+            display: none;
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            height: 180px;
+            z-index: 50;
+            pointer-events: none;
+        }
+
+        @media (hover: none) and (pointer: coarse) {
+            #mobileControls {
+                display: block;
+            }
+        }
+
+        #joystickArea {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            width: 140px;
+            height: 140px;
+            pointer-events: auto;
+        }
+
+        #joystickBase {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #joystickKnob {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.6);
+            border-radius: 50%;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        #fireBtn {
+            position: absolute;
+            bottom: 40px;
+            right: 30px;
+            width: 100px;
+            height: 100px;
+            background: rgba(231, 76, 60, 0.6);
+            border: 3px solid rgba(231, 76, 60, 0.8);
+            border-radius: 50%;
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+        }
+
+        #fireBtn:active {
+            background: rgba(231, 76, 60, 0.9);
+            transform: scale(0.95);
+        }
+
+        /* Game Over Screen */
+        #gameOverScreen {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 300;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        #gameOverScreen.active {
+            display: flex;
+        }
+
+        .game-over-title {
+            color: #e74c3c;
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+        }
+
+        .game-over-stats {
+            color: #fff;
+            font-size: 20px;
+            margin: 8px 0;
+        }
+
+        .restart-btn {
+            margin-top: 30px;
+            background: linear-gradient(135deg, #27ae60, #2ecc71);
+            border: none;
+            border-radius: 10px;
+            padding: 15px 50px;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .restart-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4);
+        }
+
+        /* Start Screen */
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            z-index: 400;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        .start-title {
+            color: #e74c3c;
+            font-size: 52px;
+            margin-bottom: 10px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+            letter-spacing: 2px;
+        }
+
+        .start-subtitle {
+            color: #d4c96a;
+            font-size: 18px;
+            margin-bottom: 40px;
+        }
+
+        .start-btn {
+            background: linear-gradient(135deg, #c0392b, #e74c3c);
+            border: 3px solid #922b21;
+            border-radius: 15px;
+            padding: 18px 60px;
+            color: #fff;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+        }
+
+        .start-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 30px rgba(231, 76, 60, 0.6);
+        }
+
+        .controls-info {
+            margin-top: 30px;
+            color: #aaa;
+            font-size: 14px;
+            text-align: center;
+            line-height: 1.8;
+        }
+
+        /* Wave announcement */
+        #waveAnnounce {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #e74c3c;
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+            z-index: 150;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s;
+        }
+
+        #waveAnnounce.show {
+            opacity: 1;
+        }
+
+        /* Damage flash */
+        #damageFlash {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 0, 0, 0.3);
+            z-index: 90;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.1s;
+        }
+    </style>
+<base target="_blank">
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Stats Panel -->
+        <div id="statsPanel">
+            <div class="stat-item">
+                <span class="stat-icon">🪙</span>
+                <span class="stat-label">Coins:</span>
+                <span class="stat-value" id="coinDisplay">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-icon">🌊</span>
+                <span class="stat-label">Wave:</span>
+                <span class="stat-value" id="waveDisplay">1</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-icon">💀</span>
+                <span class="stat-label">Kills:</span>
+                <span class="stat-value" id="killDisplay">0</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-icon">❤️</span>
+                <span class="stat-label">Health:</span>
+                <div id="healthBar">
+                    <div id="healthFill"></div>
+                </div>
+            </div>
+            <div class="stat-item" style="margin-top:8px; border-top:1px solid #555; padding-top:8px;">
+                <span class="stat-icon">🔫</span>
+                <span class="stat-label">Weapon:</span>
+                <span class="stat-value" id="weaponDisplay" style="font-size:13px; color:#3498db;">Pistol</span>
+            </div>
+        </div>
+
+        <!-- Shop Button -->
+        <button id="shopBtn">🛒 WEAPON SHOP</button>
+
+        <!-- Shop Modal -->
+        <div id="shopModal">
+            <div class="shop-title">🔫 WEAPON SHOP</div>
+            <div class="shop-coins">🪙 Coins: <span id="shopCoinDisplay">0</span></div>
+            <div class="weapons-grid" id="weaponsGrid"></div>
+            <button class="close-shop" id="closeShop">CLOSE SHOP</button>
+        </div>
+
+        <!-- Mobile Controls -->
+        <div id="mobileControls">
+            <div id="joystickArea">
+                <div id="joystickBase"></div>
+                <div id="joystickKnob"></div>
+            </div>
+            <div id="fireBtn">FIRE</div>
+        </div>
+
+        <!-- Wave Announcement -->
+        <div id="waveAnnounce"></div>
+
+        <!-- Damage Flash -->
+        <div id="damageFlash"></div>
+
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen">
+            <div class="game-over-title">💀 GAME OVER</div>
+            <div class="game-over-stats">Waves Survived: <span id="finalWave">0</span></div>
+            <div class="game-over-stats">Total Kills: <span id="finalKills">0</span></div>
+            <div class="game-over-stats">Coins Earned: <span id="finalCoins">0</span></div>
+            <button class="restart-btn" id="restartBtn">🔄 PLAY AGAIN</button>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="startScreen">
+            <div class="start-title">🧟 ZOMBIE LAWN MOWER</div>
+            <div class="start-subtitle">Mow down the undead horde!</div>
+            <button class="start-btn" id="startBtn">▶ START GAME</button>
+            <div class="controls-info">
+                <strong>Desktop:</strong> WASD/Arrow keys to move • Mouse to aim • Click to shoot<br>
+                <strong>Mobile:</strong> Virtual joystick to move • Tap FIRE button to shoot
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== GAME ENGINE ====================
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Game state
+        let gameRunning = false;
+        let gamePaused = false;
+        let lastTime = 0;
+
+        // Player stats
+        let player = {
+            x: 0,
+            y: 0,
+            radius: 20,
+            speed: 200,
+            health: 100,
+            maxHealth: 100,
+            coins: 0,
+            kills: 0,
+            wave: 1,
+            angle: 0,
+            invincible: 0
+        };
+
+        // Weapons
+        const weapons = {
+            pistol: {
+                name: 'Pistol',
+                price: 0,
+                damage: 25,
+                fireRate: 400,
+                range: 400,
+                speed: 600,
+                color: '#f39c12',
+                owned: true,
+                selected: true,
+                spread: 0,
+                pellets: 1
+            },
+            smg: {
+                name: 'SMG',
+                price: 150,
+                damage: 15,
+                fireRate: 120,
+                range: 350,
+                speed: 700,
+                color: '#3498db',
+                owned: false,
+                selected: false,
+                spread: 0.15,
+                pellets: 1
+            },
+            shotgun: {
+                name: 'Shotgun',
+                price: 300,
+                damage: 20,
+                fireRate: 800,
+                range: 250,
+                speed: 500,
+                color: '#e67e22',
+                owned: false,
+                selected: false,
+                spread: 0.4,
+                pellets: 5
+            },
+            rifle: {
+                name: 'Rifle',
+                price: 500,
+                damage: 60,
+                fireRate: 500,
+                range: 600,
+                speed: 900,
+                color: '#9b59b6',
+                owned: false,
+                selected: false,
+                spread: 0.05,
+                pellets: 1
+            },
+            minigun: {
+                name: 'Minigun',
+                price: 1000,
+                damage: 12,
+                fireRate: 60,
+                range: 450,
+                speed: 800,
+                color: '#e74c3c',
+                owned: false,
+                selected: false,
+                spread: 0.2,
+                pellets: 1
+            },
+            laser: {
+                name: 'Laser',
+                price: 2000,
+                damage: 100,
+                fireRate: 300,
+                range: 800,
+                speed: 1200,
+                color: '#00ff88',
+                owned: false,
+                selected: false,
+                spread: 0,
+                pellets: 1
+            }
+        };
+
+        let currentWeapon = 'pistol';
+        let lastShot = 0;
+
+        // Projectiles
+        let projectiles = [];
+
+        // Zombies
+        let zombies = [];
+        let zombieSpawnTimer = 0;
+        let zombiesPerWave = 5;
+        let zombiesSpawned = 0;
+        let waveInProgress = false;
+        let waveCooldown = 0;
+
+        // Zombie types
+        const zombieTypes = {
+            normal: {
+                health: 50,
+                speed: 60,
+                damage: 10,
+                radius: 18,
+                color: '#2ecc71',
+                coinValue: 10
+            },
+            fast: {
+                health: 30,
+                speed: 120,
+                damage: 8,
+                radius: 14,
+                color: '#f1c40f',
+                coinValue: 15
+            },
+            tank: {
+                health: 150,
+                speed: 35,
+                damage: 20,
+                radius: 28,
+                color: '#8e44ad',
+                coinValue: 30
+            },
+            runner: {
+                health: 40,
+                speed: 90,
+                damage: 12,
+                radius: 16,
+                color: '#e67e22',
+                coinValue: 20
+            }
+        };
+
+        // Particles
+        let particles = [];
+
+        // Input
+        const keys = {};
+        let mousePos = { x: 0, y: 0 };
+        let mouseDown = false;
+
+        // Mobile joystick
+        let joystickActive = false;
+        let joystickVector = { x: 0, y: 0 };
+        let joystickStart = { x: 0, y: 0 };
+        let joystickCurrent = { x: 0, y: 0 };
+        let mobileFiring = false;
+
+        // Grass decoration
+        let grassBlades = [];
+        function generateGrass() {
+            grassBlades = [];
+            for (let i = 0; i < 200; i++) {
+                grassBlades.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: 5 + Math.random() * 10,
+                    angle: Math.random() * Math.PI * 2,
+                    color: Math.random() > 0.5 ? '#b8b04a' : '#c4bc5a'
+                });
+            }
+        }
+
+        // ==================== INPUT HANDLING ====================
+        window.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === 'Escape') toggleShop();
+        });
+        window.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+
+        canvas.addEventListener('mousemove', (e) => {
+            mousePos.x = e.clientX;
+            mousePos.y = e.clientY;
+        });
+        canvas.addEventListener('mousedown', () => mouseDown = true);
+        canvas.addEventListener('mouseup', () => mouseDown = false);
+
+        // Mobile joystick
+        const joystickArea = document.getElementById('joystickArea');
+        const joystickKnob = document.getElementById('joystickKnob');
+        const fireBtn = document.getElementById('fireBtn');
+
+        joystickArea.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            const rect = joystickArea.getBoundingClientRect();
+            joystickStart.x = rect.left + rect.width / 2;
+            joystickStart.y = rect.top + rect.height / 2;
+            joystickCurrent.x = touch.clientX;
+            joystickCurrent.y = touch.clientY;
+            joystickActive = true;
+            updateJoystick();
+        });
+
+        joystickArea.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!joystickActive) return;
+            const touch = e.touches[0];
+            joystickCurrent.x = touch.clientX;
+            joystickCurrent.y = touch.clientY;
+            updateJoystick();
+        });
+
+        joystickArea.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            joystickActive = false;
+            joystickVector = { x: 0, y: 0 };
+            joystickKnob.style.transform = `translate(-50%, -50%)`;
+        });
+
+        function updateJoystick() {
+            const maxDist = 50;
+            let dx = joystickCurrent.x - joystickStart.x;
+            let dy = joystickCurrent.y - joystickStart.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist > maxDist) {
+                dx = (dx / dist) * maxDist;
+                dy = (dy / dist) * maxDist;
+            }
+
+            joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+
+            if (dist > 10) {
+                joystickVector.x = dx / maxDist;
+                joystickVector.y = dy / maxDist;
+            } else {
+                joystickVector = { x: 0, y: 0 };
+            }
+        }
+
+        fireBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            mobileFiring = true;
+        });
+        fireBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            mobileFiring = false;
+        });
+
+        // ==================== SHOP SYSTEM ====================
+        const shopBtn = document.getElementById('shopBtn');
+        const shopModal = document.getElementById('shopModal');
+        const closeShop = document.getElementById('closeShop');
+        const weaponsGrid = document.getElementById('weaponsGrid');
+        const shopCoinDisplay = document.getElementById('shopCoinDisplay');
+
+        function toggleShop() {
+            if (!gameRunning) return;
+            gamePaused = !gamePaused;
+            shopModal.classList.toggle('active');
+            if (gamePaused) renderShop();
+        }
+
+        shopBtn.addEventListener('click', toggleShop);
+        closeShop.addEventListener('click', toggleShop);
+
+        function renderShop() {
+            shopCoinDisplay.textContent = player.coins;
+            weaponsGrid.innerHTML = '';
+
+            for (const [key, weapon] of Object.entries(weapons)) {
+                const card = document.createElement('div');
+                card.className = 'weapon-card';
+                if (weapon.owned) card.classList.add('owned');
+                if (weapon.selected) card.classList.add('selected');
+
+                card.innerHTML = `
+                    <div class="weapon-name">${weapon.name}</div>
+                    <div class="weapon-stats">Damage: ${weapon.damage}</div>
+                    <div class="weapon-stats">Fire Rate: ${(1000/weapon.fireRate).toFixed(1)}/s</div>
+                    <div class="weapon-stats">Range: ${weapon.range}px</div>
+                    <div class="weapon-price">${weapon.owned ? (weapon.selected ? '✓ EQUIPPED' : 'OWNED') : '🪙 ' + weapon.price}</div>
+                `;
+
+                card.addEventListener('click', () => buyWeapon(key));
+                weaponsGrid.appendChild(card);
+            }
+        }
+
+        function buyWeapon(key) {
+            const weapon = weapons[key];
+            if (weapon.owned) {
+                // Equip weapon
+                for (const w of Object.values(weapons)) w.selected = false;
+                weapon.selected = true;
+                currentWeapon = key;
+                document.getElementById('weaponDisplay').textContent = weapon.name;
+                renderShop();
+            } else if (player.coins >= weapon.price) {
+                player.coins -= weapon.price;
+                weapon.owned = true;
+                // Auto-equip
+                for (const w of Object.values(weapons)) w.selected = false;
+                weapon.selected = true;
+                currentWeapon = key;
+                document.getElementById('weaponDisplay').textContent = weapon.name;
+                updateStats();
+                renderShop();
+            }
+        }
+
+        // ==================== GAME LOGIC ====================
+        function startGame() {
+            document.getElementById('startScreen').style.display = 'none';
+            gameRunning = true;
+            gamePaused = false;
+
+            // Reset player
+            player.x = canvas.width / 2;
+            player.y = canvas.height / 2;
+            player.health = 100;
+            player.coins = 0;
+            player.kills = 0;
+            player.wave = 1;
+            player.invincible = 0;
+
+            // Reset weapons
+            for (const key in weapons) {
+                weapons[key].owned = key === 'pistol';
+                weapons[key].selected = key === 'pistol';
+            }
+            currentWeapon = 'pistol';
+            document.getElementById('weaponDisplay').textContent = 'Pistol';
+
+            // Reset game state
+            projectiles = [];
+            zombies = [];
+            particles = [];
+            zombiesPerWave = 5;
+            zombiesSpawned = 0;
+            waveInProgress = true;
+            waveCooldown = 3;
+
+            generateGrass();
+            updateStats();
+            announceWave(1);
+
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function announceWave(wave) {
+            const el = document.getElementById('waveAnnounce');
+            el.textContent = `WAVE ${wave}`;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 2000);
+        }
+
+        function updateStats() {
+            document.getElementById('coinDisplay').textContent = player.coins;
+            document.getElementById('waveDisplay').textContent = player.wave;
+            document.getElementById('killDisplay').textContent = player.kills;
+            document.getElementById('healthFill').style.width = (player.health / player.maxHealth * 100) + '%';
+        }
+
+        function spawnZombie() {
+            const types = Object.keys(zombieTypes);
+            // Higher waves get tougher zombies
+            let availableTypes = ['normal'];
+            if (player.wave >= 2) availableTypes.push('fast');
+            if (player.wave >= 3) availableTypes.push('runner');
+            if (player.wave >= 5) availableTypes.push('tank');
+
+            const typeKey = availableTypes[Math.floor(Math.random() * availableTypes.length)];
+            const type = zombieTypes[typeKey];
+
+            // Spawn at edge of screen
+            const angle = Math.random() * Math.PI * 2;
+            const dist = Math.max(canvas.width, canvas.height) / 2 + 50;
+            const x = player.x + Math.cos(angle) * dist;
+            const y = player.y + Math.sin(angle) * dist;
+
+            zombies.push({
+                x: x,
+                y: y,
+                type: typeKey,
+                health: type.health * (1 + player.wave * 0.1),
+                maxHealth: type.health * (1 + player.wave * 0.1),
+                speed: type.speed,
+                damage: type.damage,
+                radius: type.radius,
+                color: type.color,
+                coinValue: type.coinValue,
+                flash: 0
+            });
+        }
+
+        function spawnParticles(x, y, color, count, speed) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const vel = Math.random() * speed;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * vel,
+                    vy: Math.sin(angle) * vel,
+                    life: 0.5 + Math.random() * 0.5,
+                    maxLife: 1,
+                    color: color,
+                    size: 2 + Math.random() * 4
+                });
+            }
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            document.getElementById('finalWave').textContent = player.wave;
+            document.getElementById('finalKills').textContent = player.kills;
+            document.getElementById('finalCoins').textContent = player.coins;
+            document.getElementById('gameOverScreen').classList.add('active');
+        }
+
+        document.getElementById('startBtn').addEventListener('click', startGame);
+        document.getElementById('restartBtn').addEventListener('click', () => {
+            document.getElementById('gameOverScreen').classList.remove('active');
+            startGame();
+        });
+
+        // ==================== MAIN GAME LOOP ====================
+        function gameLoop(timestamp) {
+            if (!gameRunning) return;
+
+            const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+            lastTime = timestamp;
+
+            if (!gamePaused) {
+                update(dt);
+            }
+            render();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function update(dt) {
+            // Player movement
+            let dx = 0, dy = 0;
+
+            if (joystickActive) {
+                dx = joystickVector.x;
+                dy = joystickVector.y;
+            } else {
+                if (keys['w'] || keys['arrowup']) dy = -1;
+                if (keys['s'] || keys['arrowdown']) dy = 1;
+                if (keys['a'] || keys['arrowleft']) dx = -1;
+                if (keys['d'] || keys['arrowright']) dx = 1;
+            }
+
+            // Normalize diagonal movement
+            if (dx !== 0 && dy !== 0) {
+                const len = Math.sqrt(dx * dx + dy * dy);
+                dx /= len;
+                dy /= len;
+            }
+
+            player.x += dx * player.speed * dt;
+            player.y += dy * player.speed * dt;
+
+            // Keep player in bounds
+            player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+            player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
+
+            // Player angle (aim)
+            if (!joystickActive) {
+                player.angle = Math.atan2(mousePos.y - player.y, mousePos.x - player.x);
+            } else if (dx !== 0 || dy !== 0) {
+                player.angle = Math.atan2(dy, dx);
+            }
+
+            // Shooting
+            const weapon = weapons[currentWeapon];
+            const now = performance.now();
+            if ((mouseDown || mobileFiring) && now - lastShot > weapon.fireRate) {
+                lastShot = now;
+
+                for (let i = 0; i < weapon.pellets; i++) {
+                    let angle = player.angle;
+                    if (weapon.spread > 0) {
+                        angle += (Math.random() - 0.5) * weapon.spread * 2;
+                    }
+
+                    projectiles.push({
+                        x: player.x + Math.cos(player.angle) * 25,
+                        y: player.y + Math.sin(player.angle) * 25,
+                        vx: Math.cos(angle) * weapon.speed,
+                        vy: Math.sin(angle) * weapon.speed,
+                        damage: weapon.damage,
+                        range: weapon.range,
+                        distance: 0,
+                        color: weapon.color,
+                        size: weapon.pellets > 1 ? 3 : 5
+                    });
+                }
+
+                // Recoil effect
+                spawnParticles(
+                    player.x + Math.cos(player.angle) * 25,
+                    player.y + Math.sin(player.angle) * 25,
+                    '#ffaa00', 3, 50
+                );
+            }
+
+            // Update projectiles
+            for (let i = projectiles.length - 1; i >= 0; i--) {
+                const p = projectiles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.distance += Math.sqrt(p.vx * p.vx + p.vy * p.vy) * dt;
+
+                if (p.distance > p.range || 
+                    p.x < -50 || p.x > canvas.width + 50 ||
+                    p.y < -50 || p.y > canvas.height + 50) {
+                    projectiles.splice(i, 1);
+                }
+            }
+
+            // Wave management
+            if (waveCooldown > 0) {
+                waveCooldown -= dt;
+                if (waveCooldown <= 0) {
+                    waveInProgress = true;
+                    zombiesSpawned = 0;
+                    zombiesPerWave = 5 + player.wave * 3;
+                }
+            }
+
+            if (waveInProgress) {
+                zombieSpawnTimer -= dt;
+                if (zombieSpawnTimer <= 0 && zombiesSpawned < zombiesPerWave) {
+                    spawnZombie();
+                    zombiesSpawned++;
+                    zombieSpawnTimer = Math.max(0.5, 2 - player.wave * 0.1);
+                }
+
+                if (zombiesSpawned >= zombiesPerWave && zombies.length === 0) {
+                    waveInProgress = false;
+                    player.wave++;
+                    waveCooldown = 3;
+                    announceWave(player.wave);
+                    // Heal player slightly between waves
+                    player.health = Math.min(player.maxHealth, player.health + 10);
+                    updateStats();
+                }
+            }
+
+            // Update zombies
+            for (let i = zombies.length - 1; i >= 0; i--) {
+                const z = zombies[i];
+                const angle = Math.atan2(player.y - z.y, player.x - z.x);
+                z.x += Math.cos(angle) * z.speed * dt;
+                z.y += Math.sin(angle) * z.speed * dt;
+
+                if (z.flash > 0) z.flash -= dt;
+
+                // Check collision with player
+                const dist = Math.sqrt((player.x - z.x) ** 2 + (player.y - z.y) ** 2);
+                if (dist < player.radius + z.radius && player.invincible <= 0) {
+                    player.health -= z.damage;
+                    player.invincible = 0.5;
+                    document.getElementById('damageFlash').style.opacity = '1';
+                    setTimeout(() => {
+                        document.getElementById('damageFlash').style.opacity = '0';
+                    }, 100);
+
+                    // Knockback
+                    const knockAngle = Math.atan2(player.y - z.y, player.x - z.x);
+                    player.x += Math.cos(knockAngle) * 30;
+                    player.y += Math.sin(knockAngle) * 30;
+
+                    spawnParticles(player.x, player.y, '#ff0000', 8, 100);
+
+                    if (player.health <= 0) {
+                        player.health = 0;
+                        updateStats();
+                        gameOver();
+                        return;
+                    }
+                    updateStats();
+                }
+
+                // Check collision with projectiles
+                for (let j = projectiles.length - 1; j >= 0; j--) {
+                    const p = projectiles[j];
+                    const pDist = Math.sqrt((p.x - z.x) ** 2 + (p.y - z.y) ** 2);
+                    if (pDist < z.radius + p.size) {
+                        z.health -= p.damage;
+                        z.flash = 0.1;
+                        projectiles.splice(j, 1);
+                        spawnParticles(p.x, p.y, z.color, 3, 50);
+
+                        if (z.health <= 0) {
+                            player.kills++;
+                            player.coins += z.coinValue;
+                            spawnParticles(z.x, z.y, z.color, 12, 80);
+                            spawnParticles(z.x, z.y, '#ff0000', 6, 60);
+                            zombies.splice(i, 1);
+                            updateStats();
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (player.invincible > 0) player.invincible -= dt;
+
+            // Update particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.vx *= 0.95;
+                p.vy *= 0.95;
+                p.life -= dt;
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+        }
+
+        function render() {
+            // Clear canvas
+            ctx.fillStyle = '#d4c96a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grass
+            ctx.strokeStyle = '#b8b04a';
+            ctx.lineWidth = 2;
+            for (const blade of grassBlades) {
+                ctx.beginPath();
+                ctx.moveTo(blade.x, blade.y);
+                ctx.lineTo(
+                    blade.x + Math.cos(blade.angle) * blade.size,
+                    blade.y + Math.sin(blade.angle) * blade.size
+                );
+                ctx.stroke();
+            }
+
+            // Draw grid pattern
+            ctx.strokeStyle = 'rgba(0,0,0,0.03)';
+            ctx.lineWidth = 1;
+            const gridSize = 50;
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Draw particles
+            for (const p of particles) {
+                const alpha = p.life / p.maxLife;
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+
+            // Draw projectiles
+            for (const p of projectiles) {
+                ctx.fillStyle = p.color;
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Trail
+                ctx.strokeStyle = p.color;
+                ctx.globalAlpha = 0.3;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x - p.vx * 0.05, p.y - p.vy * 0.05);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+
+            // Draw zombies
+            for (const z of zombies) {
+                ctx.save();
+                ctx.translate(z.x, z.y);
+
+                // Flash when hit
+                if (z.flash > 0) {
+                    ctx.globalAlpha = 0.7;
+                }
+
+                // Body
+                ctx.fillStyle = z.color;
+                ctx.beginPath();
+                ctx.arc(0, 0, z.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Darker outline
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Eyes
+                const eyeAngle = Math.atan2(player.y - z.y, player.x - z.x);
+                ctx.fillStyle = '#ff0000';
+                ctx.beginPath();
+                ctx.arc(Math.cos(eyeAngle - 0.3) * z.radius * 0.5, Math.sin(eyeAngle - 0.3) * z.radius * 0.5, 3, 0, Math.PI * 2);
+                ctx.arc(Math.cos(eyeAngle + 0.3) * z.radius * 0.5, Math.sin(eyeAngle + 0.3) * z.radius * 0.5, 3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Health bar
+                const hpPct = z.health / z.maxHealth;
+                ctx.fillStyle = '#333';
+                ctx.fillRect(-15, -z.radius - 10, 30, 5);
+                ctx.fillStyle = hpPct > 0.5 ? '#2ecc71' : hpPct > 0.25 ? '#f1c40f' : '#e74c3c';
+                ctx.fillRect(-15, -z.radius - 10, 30 * hpPct, 5);
+
+                ctx.restore();
+            }
+
+            // Draw player
+            ctx.save();
+            ctx.translate(player.x, player.y);
+
+            // Invincibility flash
+            if (player.invincible > 0 && Math.floor(player.invincible * 10) % 2 === 0) {
+                ctx.globalAlpha = 0.5;
+            }
+
+            // Body
+            ctx.fillStyle = '#3498db';
+            ctx.beginPath();
+            ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Outline
+            ctx.strokeStyle = '#2980b9';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Direction indicator
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(Math.cos(player.angle) * 25, Math.sin(player.angle) * 25);
+            ctx.stroke();
+
+            // Weapon indicator
+            const w = weapons[currentWeapon];
+            ctx.fillStyle = w.color;
+            ctx.beginPath();
+            ctx.arc(Math.cos(player.angle) * 20, Math.sin(player.angle) * 20, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+
+            // Draw wave progress
+            if (waveInProgress) {
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                const remaining = zombiesPerWave - zombiesSpawned + zombies.length;
+                ctx.fillText(`Zombies: ${remaining}`, canvas.width / 2, 30);
+            }
+        }
+
+        // Initial render
+        generateGrass();
+        resizeCanvas();
+        render();
+    </script>
+</body>
+</html>
